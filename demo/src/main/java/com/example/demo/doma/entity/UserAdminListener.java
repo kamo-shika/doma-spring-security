@@ -1,5 +1,7 @@
 package com.example.demo.doma.entity;
 
+import java.time.LocalDateTime;
+
 import org.seasar.doma.jdbc.entity.EntityListener;
 import org.seasar.doma.jdbc.entity.PostDeleteContext;
 import org.seasar.doma.jdbc.entity.PostInsertContext;
@@ -15,6 +17,9 @@ public class UserAdminListener implements EntityListener<UserAdmin> {
 
     @Override
     public void preInsert(UserAdmin entity, PreInsertContext<UserAdmin> context) {
+        LocalDateTime now = LocalDateTime.now();
+        entity.setCreatedAt(now);
+        entity.setUpdatedAt(now);
     }
 
     @Override

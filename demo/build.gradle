@@ -59,6 +59,7 @@ dependencies {
 	// Doma	   
     implementation 'org.seasar.doma:doma-core:3.6.0'
     implementation'org.seasar.doma:doma-slf4j:3.6.0'
+    implementation 'org.seasar.doma.boot:doma-spring-boot-starter:2.4.0'
 	annotationProcessor 'org.seasar.doma:doma-processor:3.6.0'
 
 	// logback(SLF4J)
