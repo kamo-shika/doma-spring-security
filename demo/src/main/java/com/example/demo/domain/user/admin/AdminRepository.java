@@ -24,4 +24,8 @@ public class AdminRepository {
 
         userAdminDao.insert(userAdnmin);
     }
+
+    public UserAdmin findByUserId(String userId) {
+        return userAdminDao.selectById(userId);
+    }
 }
