@@ -1,0 +1,121 @@
+// buildscriptを追加
+buildscript {
+    repositories {
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'org.postgresql:postgresql:42.7.5' // 利用するJDBCドライバを指定する
+    }
+}
+
+
+plugins {
+	id 'java'
+    id 'eclipse'
+	id 'org.springframework.boot' version '3.4.5'
+	id 'io.spring.dependency-management' version '1.1.7'
+
+    id 'com.diffplug.eclipse.apt' version '4.3.0' 		
+    id 'org.domaframework.doma.compile' version '3.0.1'
+
+    id 'org.domaframework.doma.codegen' version '3.0.0' // doma-codegen プラグインを追加する
+}
+
+group = 'com.example'
+version = '0.0.1-SNAPSHOT'
+
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(21)
+	}
+}
+
+configurations {
+	compileOnly {
+		extendsFrom annotationProcessor
+	}
+}
+
+repositories {
+	mavenCentral()
+}
+
+dependencies {
+	// Spring Boot dependencies
+	developmentOnly 'org.springframework.boot:spring-boot-devtools'
+	implementation 'org.springframework.boot:spring-boot-starter-security'
+	implementation 'org.springframework.boot:spring-boot-starter-validation'
+	implementation 'org.springframework.boot:spring-boot-starter-web'
+
+	// lombok
+	compileOnly 'org.projectlombok:lombok'
+	annotationProcessor 'org.projectlombok:lombok'
+
+	// testing
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	testImplementation 'org.springframework.security:spring-security-test'
+
+	// Doma	   
+    implementation 'org.seasar.doma:doma-core:3.6.0'
+    implementation'org.seasar.doma:doma-slf4j:3.6.0'
+	annotationProcessor 'org.seasar.doma:doma-processor:3.6.0'
+
+	// logback(SLF4J)
+    runtimeOnly 'ch.qos.logback:logback-classic'
+
+	// postgresql JDBCドライバ
+	runtimeOnly 'org.postgresql:postgresql'
+}
+
+tasks.named('test') {
+	useJUnitPlatform()
+}
+
+eclipse {
+    classpath {
+        file {
+            whenMerged { classpath ->
+                def folder = new org.gradle.plugins.ide.eclipse.model.SourceFolder(".apt_generated", "bin/main")
+                classpath.entries.add(folder)
+                def dir = file(folder.path)
+                if (!dir.exists()) {
+                    dir.mkdir()
+                }
+            }
+        }
+    }
+    project {
+        buildCommand 'org.eclipse.buildship.core.gradleprojectbuilder'
+        natures 'org.eclipse.buildship.core.gradleprojectnature'
+    }
+    synchronizationTasks 'cleanEclipse', 'eclipse'
+}
+
+task _copySqls(type: Copy) {
+  from 'src/main/resources/META-INF'
+  into 'bin/default/META-INF'
+}
+
+compileJava.dependsOn _copySqls
+
+// Doma-codegen タスクを定義する
+domaCodeGen {
+    // make an arbitrary named block
+    dev {
+        // JDBC url
+        url = 'jdbc:postgresql:postgres'
+        // JDBC user
+        user = 'postgres'
+        // JDBC password
+        password = 'postgres'
+        // configuration for generated entity source files
+        entity {
+          packageName = 'com.example.demo.doma.entity'
+        }
+        // configuration for generated DAO source files
+        dao {
+          packageName = 'com.example.demo.doma.dao'
+        }
+    }
+}
