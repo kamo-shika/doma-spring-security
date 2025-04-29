@@ -9,9 +9,9 @@ import org.seasar.doma.Table;
 
 /**
  */
-@Entity(listener = UserListener.class, metamodel = @Metamodel)
-@Table(name = "user")
-public class User extends AbstractUser {
+@Entity(listener = UserAdminListener.class, metamodel = @Metamodel)
+@Table(name = "user_admin")
+public class UserAdmin extends AbstractUserAdmin {
 
     /** */
     @Id

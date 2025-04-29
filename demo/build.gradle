@@ -96,7 +96,6 @@ task _copySqls(type: Copy) {
   from 'src/main/resources/META-INF'
   into 'bin/default/META-INF'
 }
-
 compileJava.dependsOn _copySqls
 
 // Doma-codegen タスクを定義する

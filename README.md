@@ -201,9 +201,9 @@ eclipse.preferences.version=1
 まずは対象のテーブルを作成します。
 
 ```sql
-CREATE TABLE public.user (
-    id VARCHAR(100) PRIMARY KEY,
-    name VARCHAR(100) NOT NULL,
+CREATE TABLE user_admin (
+    user_id VARCHAR(100) PRIMARY KEY,
+    user_name VARCHAR(100) NOT NULL,
     email VARCHAR(100) NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -307,10 +307,12 @@ eclipse {
     synchronizationTasks 'cleanEclipse', 'eclipse'
 }
 
+// SQLファイルを'bin/default/META-INF'にコピーするタスクを定義しておく。
 task _copySqls(type: Copy) {
   from 'src/main/resources/META-INF'
   into 'bin/default/META-INF'
 }
+compileJava.dependsOn _copySqls //compileJavaタスクに依存させておく。
 
 // Doma-codegen タスクを定義する
 domaCodeGen {
@@ -347,3 +349,5 @@ VSCodeで操作していると、Domaが安定しない。。。
 上記を確認しながらDomaが起動することを確認してください。
 
 ### 簡単なAPIを作成する。
+
+

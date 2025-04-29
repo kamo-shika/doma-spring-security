@@ -1,6 +1,6 @@
 DROP Table IF EXISTS public.user;
 
-CREATE TABLE public.user (
+CREATE TABLE user_admin (
     user_id VARCHAR(100) PRIMARY KEY,
     user_name VARCHAR(100) NOT NULL,
     email VARCHAR(100) NOT NULL,
