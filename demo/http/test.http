@@ -4,14 +4,14 @@ POST http://localhost:8080/api/user/admin/create HTTP/1.1
 content-type: application/json
 
 {
-    "userId": "admin2",
-    "userName": "管理者2",
+    "userId": "admin3",
+    "userName": "管理者３",
     "password": "admin123",
     "email": "test@example.com"
 }
 
+###
 # ログインAPIを呼び出す
-
 POST http://localhost:8080/api/auth/login HTTP/1.1
 content-type: application/json
 

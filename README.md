@@ -488,7 +488,7 @@ public class UserAdminListener implements EntityListener<UserAdmin> {
 
 ```
 
-REST Client で下記リクエストを送信してみると無事登録できました。
+REST Client で下記リクエストを送信してみると、無事管理者ユーザを登録できました。
 
 ```bash
 # ユーザー作成APIを呼び出す
@@ -503,11 +503,201 @@ content-type: application/json
 }
 ```
 
+### Spring Security の導入
 
+SecurityConfigを書きます。
 
+```java:SecurityConfig.java
+package com.example.demo.core.config;
 
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.ProviderManager;
+import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.crypto.factory.PasswordEncoderFactories;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.SecurityFilterChain;
+
+@Configuration
+@EnableWebSecurity
+public class SecurityConfig {
+
+    @Bean
+    SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        http
+                .authorizeHttpRequests((authorize) -> authorize
+                        .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers("/api/user/admin/**").hasRole("ADMIN")
+                        .anyRequest().permitAll())
+                .csrf((csrf) -> csrf
+                        .disable());
+        return http.build();
+    }
+
+    @Bean
+    PasswordEncoder passwordEncoder() {
+        return PasswordEncoderFactories.createDelegatingPasswordEncoder();
+    }
+
+    @Bean
+    AuthenticationManager authenticationManager(
+            UserDetailsService userDetailsService,
+            PasswordEncoder passwordEncoder) {
+        DaoAuthenticationProvider authenticationProvider = new DaoAuthenticationProvider();
+        authenticationProvider.setUserDetailsService(userDetailsService);
+        authenticationProvider.setPasswordEncoder(passwordEncoder);
+
+        return new ProviderManager(authenticationProvider);
+    }
+}
+```
+
+あとは、`userDetailsService`をDomaを使ってユーザーを取得するように、実装します。
+
+```java:UserDetailServiceImpl.java
+package com.example.demo.domain.auth;
+
+import java.util.Collections;
+import java.util.Objects;
+
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.User;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.stereotype.Service;
+
+import com.example.demo.doma.entity.UserAdmin;
+import com.example.demo.domain.user.admin.AdminRepository;
+
+@Service
+public class UserDetailServiceImpl implements UserDetailsService {
+
+    private final AdminRepository adminRepository;
+
+    public UserDetailServiceImpl(AdminRepository adminRepository) {
+        this.adminRepository = adminRepository;
+    }
+
+    @Override
+    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
+
+        UserAdmin user = adminRepository.findByUserId(username);
+
+        if (Objects.isNull(user)) {
+            throw new UsernameNotFoundException("User not found");
+        } else {
+            return new User(user.getUserId(), user.getPasswordHash(), 
+                    Collections.singletonList(new SimpleGrantedAuthority("ROLE_ADMIN")));
+        }
+    }
+    
+}
+
+```
+
+最後にログイン用APIを作成します。
+
+```java:AuthController.java
+package com.example.demo.domain.auth;
+
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.context.SecurityContextHolderStrategy;
+import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
+import org.springframework.security.web.context.SecurityContextRepository;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+
+@RestController
+@RequestMapping("/api/auth")
+public class AuthController {
+
+    private final AuthenticationManager authenticationManager;
+    private SecurityContextRepository securityContextRepository = new HttpSessionSecurityContextRepository();
+    private final SecurityContextHolderStrategy securityContextHolderStrategy = SecurityContextHolder
+            .getContextHolderStrategy();
+
+    AuthController(AuthenticationManager authenticationManager) {
+        this.authenticationManager = authenticationManager;
+    }
+
+    @PostMapping("/login")
+    public void postMethodName(@RequestBody AuthRequest entity, HttpServletRequest request,
+            HttpServletResponse response) {
+        UsernamePasswordAuthenticationToken token = UsernamePasswordAuthenticationToken.unauthenticated(
+                entity.userName, entity.password);
+        Authentication authentication = authenticationManager.authenticate(token);
+        SecurityContext context = securityContextHolderStrategy.createEmptyContext();
+        context.setAuthentication(authentication);
+        securityContextHolderStrategy.setContext(context);
+        securityContextRepository.saveContext(context, request, response);
+    }
+
+    public record AuthRequest(String userName, String password) {
+    }
+
+}
+
+```
+
+ログインせずに、下記リクエストを送信してみます。
+
+```bash
+# ユーザー作成APIを呼び出す
+POST http://localhost:8080/api/user/admin/create HTTP/1.1
+content-type: application/json
+
+{
+    "userId": "admin2",
+    "userName": "管理者2",
+    "password": "admin123",
+    "email": "test@example.com"
+}
+```
+
+今度は、403エラーが返ってきました。
+
+```json
+{
+    "timestamp":"2025-05-01T12:36:10.513+00:00",
+    "status":403,
+    "error":"Forbidden",
+    "message":"Access Denied",
+    "path":"/api/user/admin/create"
+}
+```
+
+次に、下記のログイン用APIを呼び出します。
+（事前にアカウントは登録しておいてください。）
+
+```bash
+# ログインAPIを呼び出す
+POST http://localhost:8080/api/auth/login HTTP/1.1
+content-type: application/json
+
+{
+    "userName": "admin",
+    "password": "admin123"
+}
+```
+
+ログインに成功したら、再度管理者ユーザ作成用APIにリクエストを投げてみると、無事ステータス200が返ってきました。
+
+以上です。
 今回作成したデモアプリは公開しているので、気になる人はソースを確認してください。
-
 
 [DOMA3 と Spring Security でログイン認証を実装する](https://github.com/kamo-shika/doma-spring-security)
 
@@ -516,4 +706,5 @@ content-type: application/json
 - [Eclipse + Java + Gradle の環境で Doma を動かす](https://qiita.com/nakamura-to/items/9e05fe00be9d4d629fdc)
 - [Java - Visual Studio CodeでDomaの注釈処理を使う](https://bifutek.hatenablog.com/entry/2022/10/20/005726)
 - [Doma CodeGen プラグイン](https://doma.readthedocs.io/ja/stable/codegen/#doma-codegen-plugin)
+- [AuthenticationManager Bean を発行する](https://spring.pleiades.io/spring-security/reference/servlet/authentication/passwords/#publish-authentication-manager-bean) 
 
