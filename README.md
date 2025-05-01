@@ -77,7 +77,7 @@ tasks.named('test') {
 `build.gralde`にDoma系のライブラリを追記する。
 ※詳細は[Eclipse + Java + Gradle の環境で Doma を動かす](https://qiita.com/nakamura-to/items/9e05fe00be9d4d629fdc)を参照してください。
 
-```gradle
+```gradle:build.gradle
 plugins {
 	id 'java'
 	id 'org.springframework.boot' version '3.4.5'
@@ -213,7 +213,7 @@ CREATE TABLE user_admin (
 
 その後、`build.gradle`に Doma CodeGen の設定を追記します。
 
-```gradle
+```gradle:build.gradle
 // buildscriptを追加
 buildscript {
     repositories {
@@ -346,8 +346,174 @@ VSCodeで操作していると、Domaが安定しない。。。
 -  `gradle cleanEclipse eclipse` を実行して、設定ファイルを再生成する。
 -  設定ファイルの内容を確認し、編集する。
 
-上記を確認しながらDomaが起動することを確認してください。
+### 簡単なAPIを作成する
 
-### 簡単なAPIを作成する。
+管理ユーザ作成用APIを作成します。
 
+```java:AdminContoroller.java
+package com.example.demo.domain.user.admin;
+
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.example.demo.domain.user.admin.entity.Admin;
+
+
+@RestController
+@RequestMapping("/api/user/admin")
+public class AdminContoroller {
+
+    private final AdminRepository adminRepository;
+    private final AdminService adminService;
+
+    AdminContoroller(AdminRepository adminRepository, AdminService adminService) {
+        this.adminRepository = adminRepository;
+        this.adminService = adminService;
+    }
+    
+    @PostMapping("/create")
+    public Admin create(@Validated @RequestBody Admin entity) {
+        String encodedPassword = adminService.encodePassword(entity.getPassword());
+        adminRepository.create(entity.getUserId(), entity.getUserName(), entity.getEmail(), encodedPassword);
+        return entity;
+    }
+}
+
+```
+
+```java:AdminRepository.java
+package com.example.demo.domain.user.admin;
+
+import org.springframework.stereotype.Repository;
+
+import com.example.demo.doma.dao.UserAdminDao;
+import com.example.demo.doma.entity.UserAdmin;
+
+@Repository
+public class AdminRepository {
+
+    private final UserAdminDao userAdminDao;
+
+    public AdminRepository(UserAdminDao userAdminDao) {
+        this.userAdminDao = userAdminDao;
+    }
+
+    public void create(String userId, String userName, String email, String password) {
+        
+        UserAdmin userAdnmin = new UserAdmin();
+        userAdnmin.setUserId(userId);
+        userAdnmin.setUserName(userName);
+        userAdnmin.setEmail(email);
+        userAdnmin.setPasswordHash(password);
+
+        userAdminDao.insert(userAdnmin);
+    }
+
+    public UserAdmin findByUserId(String userId) {
+        return userAdminDao.selectById(userId);
+    }
+}
+```
+
+```java:AdminService.java
+
+package com.example.demo.domain.user.admin;
+
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+
+@Service
+public class AdminService {
+    
+    private final PasswordEncoder passwordEncoder;
+    AdminService(PasswordEncoder passwordEncoder) {
+        this.passwordEncoder = passwordEncoder;
+    }
+    
+    public String encodePassword(String password) {
+        return passwordEncoder.encode(password);
+    }
+
+}
+```
+
+```java:UserAdminListener.java
+package com.example.demo.doma.entity;
+
+import java.time.LocalDateTime;
+
+import org.seasar.doma.jdbc.entity.EntityListener;
+import org.seasar.doma.jdbc.entity.PostDeleteContext;
+import org.seasar.doma.jdbc.entity.PostInsertContext;
+import org.seasar.doma.jdbc.entity.PostUpdateContext;
+import org.seasar.doma.jdbc.entity.PreDeleteContext;
+import org.seasar.doma.jdbc.entity.PreInsertContext;
+import org.seasar.doma.jdbc.entity.PreUpdateContext;
+
+/**
+ * 
+ */
+public class UserAdminListener implements EntityListener<UserAdmin> {
+
+    @Override
+    public void preInsert(UserAdmin entity, PreInsertContext<UserAdmin> context) {
+        LocalDateTime now = LocalDateTime.now();    //リスナーでタイムスタンプを発行できるようにしておく。
+        entity.setCreatedAt(now);
+        entity.setUpdatedAt(now);
+    }
+
+    @Override
+    public void preUpdate(UserAdmin entity, PreUpdateContext<UserAdmin> context) {
+    }
+
+    @Override
+    public void preDelete(UserAdmin entity, PreDeleteContext<UserAdmin> context) {
+    }
+
+    @Override
+    public void postInsert(UserAdmin entity, PostInsertContext<UserAdmin> context) {
+    }
+
+    @Override
+    public void postUpdate(UserAdmin entity, PostUpdateContext<UserAdmin> context) {
+    }
+
+    @Override
+    public void postDelete(UserAdmin entity, PostDeleteContext<UserAdmin> context) {
+    }
+}
+
+```
+
+REST Client で下記リクエストを送信してみると無事登録できました。
+
+```bash
+# ユーザー作成APIを呼び出す
+POST http://localhost:8080/api/user/admin/create HTTP/1.1
+content-type: application/json
+
+{
+    "userId": "admin",
+    "userName": "管理者",
+    "password": "admin123",
+    "email": "test@example.com"
+}
+```
+
+
+
+
+今回作成したデモアプリは公開しているので、気になる人はソースを確認してください。
+
+
+[DOMA3 と Spring Security でログイン認証を実装する](https://github.com/kamo-shika/doma-spring-security)
+
+### 参考文献
+
+- [Eclipse + Java + Gradle の環境で Doma を動かす](https://qiita.com/nakamura-to/items/9e05fe00be9d4d629fdc)
+- [Java - Visual Studio CodeでDomaの注釈処理を使う](https://bifutek.hatenablog.com/entry/2022/10/20/005726)
+- [Doma CodeGen プラグイン](https://doma.readthedocs.io/ja/stable/codegen/#doma-codegen-plugin)
 

@@ -20,6 +20,8 @@ public class SecurityConfig {
     SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .authorizeHttpRequests((authorize) -> authorize
+                        .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers("/api/user/admin/**").hasRole("ADMIN")
                         .anyRequest().permitAll())
                 .csrf((csrf) -> csrf
                         .disable());
@@ -30,7 +32,6 @@ public class SecurityConfig {
     PasswordEncoder passwordEncoder() {
         return PasswordEncoderFactories.createDelegatingPasswordEncoder();
     }
-    
 
     @Bean
     AuthenticationManager authenticationManager(

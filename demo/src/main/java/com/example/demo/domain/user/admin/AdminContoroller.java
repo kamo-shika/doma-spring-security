@@ -22,7 +22,7 @@ public class AdminContoroller {
     }
     
     @PostMapping("/create")
-    public Admin postMethodName(@Validated @RequestBody Admin entity) {
+    public Admin create(@Validated @RequestBody Admin entity) {
         String encodedPassword = adminService.encodePassword(entity.getPassword());
         adminRepository.create(entity.getUserId(), entity.getUserName(), entity.getEmail(), encodedPassword);
         return entity;
